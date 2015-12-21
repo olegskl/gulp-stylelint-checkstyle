@@ -14,14 +14,51 @@ import through from 'through2';
  */
 const pluginName = 'gulp-stylelint-checkstyle';
 
+//
+// Console reporter
+// --------------------
+
 /**
- * Severity type mapping between Stylelint and Checkstyle.
- * @type {Object}
+ * Logs an issue to the console.
+ * @param  {Object}    message Stylelint message.
+ * @return {undefined}         Nothing is returned.
  */
-const severityTypeMapping = {
-  1: 'warning',
-  2: 'error'
-};
+function consoleMessageReporter(message) {
+  const errorCoords = gulpUtil.colors.gray(`${message.line}:${message.column}`);
+  const errorNotice = message.severity === 'error' ?
+    gulpUtil.colors.red('error') :
+    gulpUtil.colors.yellow('warning');
+
+  gulpUtil.log(`${errorCoords} ${errorNotice} ${message.text}`);
+}
+
+/**
+ * Logs a Stylelint result source and all its messages.
+ * @param  {Object}    result Stylelint result.
+ * @return {undefined}        Nothing is returned.
+ */
+function consoleResultReporter(result) {
+  gulpUtil.log(gulpUtil.colors.underline(result.opts.from));
+  result.messages
+    .filter(message => message.plugin === 'stylelint')
+    .forEach(consoleMessageReporter);
+}
+
+/**
+ * Takes a list of Stylelint results and outputs them to the console.
+ * @param  {Array<Object>} resultList Stylelint result list.
+ * @return {Array<Object>}            Stylelint result list.
+ */
+function consoleResultListReporter(resultList) {
+  resultList
+    .filter(result => result.messages.length > 0)
+    .forEach(consoleResultReporter);
+  return resultList;
+}
+
+//
+// Checkstyle reporter
+// --------------------
 
 /**
  * Adapts a Stylelint message to Checkstyle format.
@@ -32,7 +69,7 @@ function stylelintToCheckstyleMessageAdapter(message) {
   return {
     line: message.line,
     column: message.column,
-    severity: severityTypeMapping[message.severity],
+    severity: message.severity,
     message: message.text
   };
 }
@@ -71,6 +108,33 @@ function stylelintToCheckstyleResultListAdapter(resultList) {
     .map(stylelineToCheckstyleResultAdapter);
 }
 
+//
+// Fail-after-all-errors reporter
+// --------------------
+
+/**
+ * Takes Stylelint results (with messages) and adapts them to Checkstyle format.
+ * @param  {Array<Object>} resultList List of results in Stylelint format.
+ * @return {Number}                   Count of issues (errors and warnings).
+ */
+function countIssuesInResultList(resultList) {
+  return resultList.reduce((resultMemo, result) => resultMemo + result.messages.length, 0);
+}
+
+/**
+ * Takes Stylelint results (with messages) and adapts them to Checkstyle format.
+ * @param  {Array<Object>} resultList List of results in Stylelint format.
+ * @throws {Error}                    An error is thrown if linting issues have been detected.
+ * @return {undefined}                Nothing is returned.
+ */
+function failAfterAllErrorsReporter(resultList) {
+  const errorCount = countIssuesInResultList(resultList);
+  if (errorCount > 0) {
+    const errorNotice = errorCount === 1 ? 'issue has' : 'issues have';
+    throw new Error(`${errorCount} linting ${errorNotice} been found.`);
+  }
+}
+
 /**
  * Stylelint-to-Checkstyle result transformer stream.
  * @param  {Object} [options] Optional options object.
@@ -87,10 +151,22 @@ export default function gulpStylelintCheckstyle(options = {}) {
    * Writes the Checkstyle report to a file.
    * @param  {String}  xmlString Checkstyle report.
    * @return {Promise}           Resolved if file has been successfully written.
-   */
+  */
   function outputWriter(xmlString) {
     return mkdirp(outputDir)
       .then(() => fsp.writeFile(outputFile, xmlString));
+  }
+
+  /**
+   * Reports Stylelint results in Checkstyle format.
+   * @param  {Array<Object>} results List of results in Stylelint format.
+   * @return {Promise}               Resolved when report has been written to file system.
+   */
+  function checkstyleReporter(results) {
+    return Promise.resolve(results)
+      .then(stylelintToCheckstyleResultListAdapter)
+      .then(checkstyleFormatter)
+      .then(outputWriter);
   }
 
   /**
@@ -123,6 +199,25 @@ export default function gulpStylelintCheckstyle(options = {}) {
   }
 
   /**
+   * Provides Stylelint results to reporters and awaits their response.
+   * @param  {Array<Object>} results List of results in Stylelint format.
+   * @return {Promise}               Accumulated result of reporters execution.
+   */
+  function provideResultsToReporters(results) {
+    const reporters = [checkstyleReporter];
+
+    if (options.reportToConsole) {
+      reporters.push(consoleResultListReporter);
+    }
+
+    if (options.failAfterAllErrors) {
+      reporters.push(failAfterAllErrorsReporter);
+    }
+
+    return Promise.all(reporters.map(reporter => reporter(results)));
+  }
+
+  /**
    * Resolves accumulated promises and writes report to file system.
    * @param  {Function}  done Done callback.
    * @return {undefined}      Nothing is returned (done callback is used instead).
@@ -130,9 +225,7 @@ export default function gulpStylelintCheckstyle(options = {}) {
   function onStreamEnd(done) {
     Promise
       .all(promiseList)
-      .then(stylelintToCheckstyleResultListAdapter)
-      .then(checkstyleFormatter)
-      .then(outputWriter)
+      .then(provideResultsToReporters)
       .then(() => done())
       .catch(error => {
         // For some reason we need to wrap `emit` in a try-catch block
