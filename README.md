@@ -18,24 +18,13 @@ With gulp-stylelint-checkstyle, it's easy to start generate a CSS lint report fo
 If you already have a .stylelintrc file in your project directory:
 
 ```js
-gulp
-  .src('src/**/*.css')
-  .pipe(gulpStylelintCheckstyle({
-    output: 'reports/lint/lint-css.xml'
-  }));
-```
-
-Alternatively you can specify the stylelint configuration as part of the plugin options:
-
-```js
-gulp
-  .src('src/**/*.css')
-  .pipe(gulpStylelintCheckstyle({
-    stylelint: {
-      extends: 'stylelint-config-suitcss'
-    },
-    output: 'reports/lint/lint-css.xml'
-  }));
+gulp.task('lint-css', function lintCssTask() {
+  return gulp
+    .src('src/**/*.css')
+    .pipe(gulpStylelintCheckstyle({
+      output: 'reports/lint/lint-css.xml'
+    }));
+});
 ```
 
 ## Options
@@ -43,31 +32,33 @@ gulp
 Below is an example with all available options provided:
 
 ```js
-gulp
-  .src('src/**/*.css')
-  .pipe(gulpStylelintCheckstyle({
-    stylelint: {
-      extends: 'stylelint-config-suitcss'
-    },
-    output: 'reports/lint/lint-css.xml',
-    reportToConsole: true,
-    failAfterAllErrors: true
-  }));
+gulp.task('lint-css', function lintCssTask() {
+  return gulp
+    .src('src/**/*.css')
+    .pipe(gulpStylelintCheckstyle({
+      stylelint: {
+        extends: 'stylelint-config-suitcss'
+      },
+      output: 'reports/lint/lint-css.xml',
+      reportToConsole: true,
+      failAfterAllErrors: true
+    }));
+});
 ```
 
-### `stylelint` (Object)
+#### `stylelint` (Object)
 
 See [stylelint configuration](https://github.com/stylelint/stylelint/blob/master/docs/user-guide/configuration.md) options.
 
-### `output` (String) default: "./checkstyle.xml"
+#### `output` (String) default: "./checkstyle.xml"
 
 Relative or absolute path to the report output file, e.g. "reports/lint/lint-css.xml"
 
-### `reportToConsole` (Boolean) default: `false`
+#### `reportToConsole` (Boolean) default: `false`
 
 Setting this option to `true` will report all issues to the console as well (the checkstyle report file will still be written).
 
-### `failAfterAllErrors` (Boolean) default: `false`
+#### `failAfterAllErrors` (Boolean) default: `false`
 
 Setting this option to `true` will wait for all reporters to finish and then terminate the process with an error code 1 if linting issues (errors or warnings) have been found.
 
