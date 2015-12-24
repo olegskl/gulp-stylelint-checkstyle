@@ -1,6 +1,6 @@
 {
   "name": "gulp-stylelint-checkstyle",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Gulp plugin for reporting Stylelint results as Checkstyle",
   "main": "lib/index.js",
   "scripts": {
