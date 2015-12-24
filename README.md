@@ -5,6 +5,10 @@
 
 A [Gulp](http://gulpjs.com/) plugin that generates a [checkstyle](https://github.com/checkstyle/checkstyle) report from [stylelint](https://github.com/stylelint/stylelint) results.
 
+## Deprecated
+
+Use [gulp-stylelint](https://github.com/olegskl/gulp-stylelint) with [gulp-stylelint-checkstyle-reporter](https://github.com/olegskl/gulp-stylelint-checkstyle-reporter) instead.
+
 ## Installation
 
 ```bash
